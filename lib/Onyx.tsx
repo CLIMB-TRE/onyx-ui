@@ -6,8 +6,20 @@ import Col from "react-bootstrap/Col";
 import Stack from "react-bootstrap/Stack";
 import Button from "react-bootstrap/Button";
 import Card from "react-bootstrap/Card";
+import Tab from "react-bootstrap/Tab";
+import Tabs from "react-bootstrap/Tabs";
 import Pagination from "react-bootstrap/Pagination";
 import { mkConfig, generateCsv, download } from "export-to-csv";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
 import Header from "./components/Header";
 import { Dropdown, MultiDropdown } from "./components/Dropdowns";
 import { Input, MultiInput } from "./components/Inputs";
@@ -183,6 +195,243 @@ function flattenFields(fields: Record<string, ProjectField>) {
   return flatFields;
 }
 
+function OverviewPage({
+  data,
+}: {
+  data: Record<string, string | number | boolean | null>[];
+}) {
+  console.log(data);
+  const error = console.error;
+  console.error = (...args) => {
+    if (/defaultProps/.test(args[0])) return;
+    error(...args);
+  };
+
+  return (
+    <ResponsiveContainer width="100%" height={700}>
+      <LineChart
+        width={730}
+        height={250}
+        data={data}
+        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="collection_date" />
+        <YAxis dataKey="count" />
+        <Tooltip isAnimationActive={false} />
+        <Line
+          type="monotone"
+          dataKey="count"
+          stroke="#82ca9d"
+          strokeWidth={2}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function DataPage({
+  filterList,
+  projectFields,
+  typeLookups,
+  fieldDescriptions,
+  lookupDescriptions,
+  includeList,
+  excludeList,
+  summariseList,
+  resultData,
+  resultCount,
+  nextPage,
+  previousPage,
+  errors,
+  darkMode,
+  handleFieldChange,
+  handleLookupChange,
+  handleValueChange,
+  handleFilterAdd,
+  handleFilterRemove,
+  handleFilterClear,
+  handleIncludeChange,
+  handleExcludeChange,
+  handleSummariseChange,
+  handleSearch,
+  handleExportToCSV,
+  s3PathHandler,
+}: {
+  filterList: FilterField[];
+  projectFields: Map<string, ProjectField>;
+  typeLookups: Map<string, string[]>;
+  fieldDescriptions: Map<string, string>;
+  lookupDescriptions: Map<string, string>;
+  includeList: string[];
+  excludeList: string[];
+  summariseList: string[];
+  resultData: Record<string, string | number | boolean | null>[];
+  resultCount: number;
+  nextPage: string;
+  previousPage: string;
+  errors: Map<string, string | string[]>;
+  darkMode: boolean;
+  handleFieldChange: (
+    e: React.ChangeEvent<HTMLSelectElement>,
+    index: number
+  ) => void;
+  handleLookupChange: (
+    e: React.ChangeEvent<HTMLSelectElement>,
+    index: number
+  ) => void;
+  handleValueChange: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    index: number
+  ) => void;
+  handleFilterAdd: (index: number) => void;
+  handleFilterRemove: (index: number) => void;
+  handleFilterClear: () => void;
+  handleIncludeChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  handleExcludeChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  handleSummariseChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  handleSearch: (search?: string) => void;
+  handleExportToCSV: () => void;
+  s3PathHandler?: (path: string) => void;
+}) {
+  return (
+    <Stack gap={3}>
+      <Container fluid>
+        <Row>
+          <Col xl={6}>
+            <Card>
+              <Card.Header>
+                <span>Filter</span>
+                <Stack direction="horizontal" gap={1} className="float-end">
+                  <Button
+                    size="sm"
+                    variant="dark"
+                    onClick={() => handleFilterAdd(filterList.length)}
+                  >
+                    Add Filter
+                  </Button>
+                  <Button size="sm" variant="dark" onClick={handleFilterClear}>
+                    Clear Filters
+                  </Button>
+                </Stack>
+              </Card.Header>
+              <Card.Body className="panel">
+                <Stack gap={1}>
+                  {filterList.map((filter, index) => (
+                    <div key={index}>
+                      <Filter
+                        filter={filter}
+                        projectFields={projectFields}
+                        typeLookups={typeLookups}
+                        fieldDescriptions={fieldDescriptions}
+                        lookupDescriptions={lookupDescriptions}
+                        handleFieldChange={(e) => handleFieldChange(e, index)}
+                        handleLookupChange={(e) => handleLookupChange(e, index)}
+                        handleValueChange={(e) => handleValueChange(e, index)}
+                        handleFilterAdd={() => handleFilterAdd(index + 1)}
+                        handleFilterRemove={() => handleFilterRemove(index)}
+                        darkMode={darkMode}
+                      />
+                    </div>
+                  ))}
+                </Stack>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col md={4} xl={2}>
+            <Card>
+              <Card.Header>Summarise</Card.Header>
+              <Card.Body className="panel">
+                <MultiDropdown
+                  options={Array.from(projectFields.keys())}
+                  titles={fieldDescriptions}
+                  value={summariseList}
+                  onChange={handleSummariseChange}
+                  darkMode={darkMode}
+                />
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col md={4} xl={2}>
+            <Card>
+              <Card.Header>Include</Card.Header>
+              <Card.Body className="panel">
+                <MultiDropdown
+                  options={Array.from(projectFields.keys())}
+                  titles={fieldDescriptions}
+                  value={includeList}
+                  onChange={handleIncludeChange}
+                  darkMode={darkMode}
+                />
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col md={4} xl={2}>
+            <Card>
+              <Card.Header>Exclude</Card.Header>
+              <Card.Body className="panel">
+                <MultiDropdown
+                  options={Array.from(projectFields.keys())}
+                  value={excludeList}
+                  onChange={handleExcludeChange}
+                  darkMode={darkMode}
+                />
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </Container>
+      <Container fluid>
+        <Card>
+          <Card.Header>
+            <span>Results</span>
+            <Button
+              className="float-end"
+              size="sm"
+              variant="success"
+              onClick={handleExportToCSV}
+            >
+              Export Page to CSV
+            </Button>
+          </Card.Header>
+          <Card.Body className="table-panel">
+            {errors.size > 0 ? (
+              Array.from(errors.entries()).map(([key, value]) =>
+                Array.isArray(value) ? (
+                  value.map((v: string) => (
+                    <Alert key={key} variant="danger">
+                      {key}: {v}
+                    </Alert>
+                  ))
+                ) : (
+                  <Alert key={key} variant="danger">
+                    {key}: {value}
+                  </Alert>
+                )
+              )
+            ) : (
+              <ResultsTable data={resultData} s3PathHandler={s3PathHandler} />
+            )}
+          </Card.Body>
+          <Card.Footer>
+            <Pagination size="sm">
+              <Pagination.Prev
+                disabled={!previousPage.length}
+                onClick={() => handleSearch(previousPage)}
+              />
+              <Pagination.Item>Showing {resultCount} results</Pagination.Item>
+              <Pagination.Next
+                disabled={!nextPage.length}
+                onClick={() => handleSearch(nextPage)}
+              />
+            </Pagination>
+          </Card.Footer>
+        </Card>
+      </Container>
+    </Stack>
+  );
+}
+
 function Onyx({
   httpPathHandler,
   s3PathHandler,
@@ -217,6 +466,9 @@ function Onyx({
   const [previousPage, setPreviousPage] = useState("");
   const [errors, setErrors] = useState(new Map<string, string | string[]>());
   const [darkMode, setDarkMode] = useState(false);
+  const [page, setPage] = useState("overview");
+
+  const [graphData, setGraphData] = useState([]);
 
   useEffect(() => {
     // Fetch user profile
@@ -281,6 +533,23 @@ function Onyx({
       .catch((err) => {
         console.log(err.message);
       });
+
+    // Handle published data
+    const search =
+      "projects/" + project + "?summarise=collection_date&summarise=site";
+
+    httpPathHandler(search)
+      .then((response) => {
+        if (response.ok) {
+          response.json().then((data) => {
+            setGraphData(data["data"]);
+          });
+        }
+      })
+      .catch((err) => {
+        console.log(err.message);
+      });
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -495,7 +764,7 @@ function Onyx({
 
   return (
     <form className="Onyx" autoComplete="off">
-      <Stack gap={3}>
+      <Stack gap={1}>
         <Header
           profile={profile}
           project={project}
@@ -506,144 +775,46 @@ function Onyx({
           handleSearch={handleSearch}
           handleThemeChange={toggleTheme}
         />
-        <Container fluid>
-          <Row>
-            <Col xl={6}>
-              <Card>
-                <Card.Header>
-                  <span>Filter</span>
-                  <Stack direction="horizontal" gap={1} className="float-end">
-                    <Button
-                      size="sm"
-                      variant="dark"
-                      onClick={() => handleFilterAdd(filterList.length)}
-                    >
-                      Add Filter
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="dark"
-                      onClick={handleFilterClear}
-                    >
-                      Clear Filters
-                    </Button>
-                  </Stack>
-                </Card.Header>
-                <Card.Body className="panel">
-                  <Stack gap={1}>
-                    {filterList.map((filter, index) => (
-                      <div key={index}>
-                        <Filter
-                          filter={filter}
-                          projectFields={projectFields}
-                          typeLookups={typeLookups}
-                          fieldDescriptions={fieldDescriptions}
-                          lookupDescriptions={lookupDescriptions}
-                          handleFieldChange={(e) => handleFieldChange(e, index)}
-                          handleLookupChange={(e) =>
-                            handleLookupChange(e, index)
-                          }
-                          handleValueChange={(e) => handleValueChange(e, index)}
-                          handleFilterAdd={() => handleFilterAdd(index + 1)}
-                          handleFilterRemove={() => handleFilterRemove(index)}
-                          darkMode={darkMode}
-                        />
-                      </div>
-                    ))}
-                  </Stack>
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col md={4} xl={2}>
-              <Card>
-                <Card.Header>Summarise</Card.Header>
-                <Card.Body className="panel">
-                  <MultiDropdown
-                    options={Array.from(projectFields.keys())}
-                    titles={fieldDescriptions}
-                    value={summariseList}
-                    onChange={handleSummariseChange}
-                    darkMode={darkMode}
-                  />
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col md={4} xl={2}>
-              <Card>
-                <Card.Header>Include</Card.Header>
-                <Card.Body className="panel">
-                  <MultiDropdown
-                    options={Array.from(projectFields.keys())}
-                    titles={fieldDescriptions}
-                    value={includeList}
-                    onChange={handleIncludeChange}
-                    darkMode={darkMode}
-                  />
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col md={4} xl={2}>
-              <Card>
-                <Card.Header>Exclude</Card.Header>
-                <Card.Body className="panel">
-                  <MultiDropdown
-                    options={Array.from(projectFields.keys())}
-                    value={excludeList}
-                    onChange={handleExcludeChange}
-                    darkMode={darkMode}
-                  />
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        </Container>
-        <Container fluid>
-          <Card>
-            <Card.Header>
-              <span>Results</span>
-              <Button
-                className="float-end"
-                size="sm"
-                variant="success"
-                onClick={handleExportToCSV}
-              >
-                Export Page to CSV
-              </Button>
-            </Card.Header>
-            <Card.Body className="table-panel">
-              {errors.size > 0 ? (
-                Array.from(errors.entries()).map(([key, value]) =>
-                  Array.isArray(value) ? (
-                    value.map((v: string) => (
-                      <Alert key={key} variant="danger">
-                        {key}: {v}
-                      </Alert>
-                    ))
-                  ) : (
-                    <Alert key={key} variant="danger">
-                      {key}: {value}
-                    </Alert>
-                  )
-                )
-              ) : (
-                <ResultsTable data={resultData} s3PathHandler={s3PathHandler} />
-              )}
-            </Card.Body>
-            <Card.Footer>
-              <Pagination size="sm">
-                <Pagination.Prev
-                  disabled={!previousPage.length}
-                  onClick={() => handleSearch(previousPage)}
-                />
-                <Pagination.Item>Showing {resultCount} results</Pagination.Item>
-                <Pagination.Next
-                  disabled={!nextPage.length}
-                  onClick={() => handleSearch(nextPage)}
-                />
-              </Pagination>
-            </Card.Footer>
-          </Card>
-        </Container>
+        <Tabs
+          id="controlled-tab-example"
+          activeKey={page}
+          onSelect={(p) => setPage(p?.toString() || page)}
+          className="mb-3"
+        >
+          <Tab eventKey="overview" title="Overview">
+            <OverviewPage data={graphData} />
+          </Tab>
+          <Tab eventKey="data" title="Data">
+            <DataPage
+              filterList={filterList}
+              projectFields={projectFields}
+              typeLookups={typeLookups}
+              fieldDescriptions={fieldDescriptions}
+              lookupDescriptions={lookupDescriptions}
+              includeList={includeList}
+              excludeList={excludeList}
+              summariseList={summariseList}
+              resultData={resultData}
+              resultCount={resultCount}
+              nextPage={nextPage}
+              previousPage={previousPage}
+              errors={errors}
+              darkMode={darkMode}
+              handleFieldChange={handleFieldChange}
+              handleLookupChange={handleLookupChange}
+              handleValueChange={handleValueChange}
+              handleFilterAdd={handleFilterAdd}
+              handleFilterRemove={handleFilterRemove}
+              handleFilterClear={handleFilterClear}
+              handleIncludeChange={handleIncludeChange}
+              handleExcludeChange={handleExcludeChange}
+              handleSummariseChange={handleSummariseChange}
+              handleSearch={handleSearch}
+              handleExportToCSV={handleExportToCSV}
+              s3PathHandler={s3PathHandler}
+            />
+          </Tab>
+        </Tabs>
       </Stack>
     </form>
   );
